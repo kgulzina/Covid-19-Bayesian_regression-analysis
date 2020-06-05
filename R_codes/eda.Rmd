@@ -1,0 +1,68 @@
+---
+title: "EDA"
+author: "Gulzina Kuttubekova"
+date: "4/21/2020"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+Read the dataset:
+```{r}
+covid <- read.csv("~/Desktop/spring2020/stat207/bayesian-analysis-of-COVID19-in-CA/data/Covid19-04-13-20.txt")
+```
+
+```{r}
+ca_population <- 39.51*10^6
+
+# proportion of infected up to date:
+ca_infected_prop <- (sum(covid$Total.cases) / ca_population)
+```
+
+```{r}
+# create new variables: proportion of infected per county
+covid$density_cases <- covid$Total.cases / covid$Population
+
+# create new variables: rate of death per county
+covid$death_rate <- covid$Deaths / covid$Total.cases
+```
+
+```{r}
+covid
+```
+
+```{r}
+# ggplot using three variables
+ggplot(data = covid, aes(x=County, y=Total.cases)) + 
+  geom_bar(stat = "identity") + coord_flip() +
+    theme(axis.text.y = element_text(size = 6)) + 
+    ggtitle('Distribution of COVID-19 cases per county')
+```
+
+```{r}
+# ggplot using three variables
+covid %>% filter(death_rate != 0) %>% ggplot(aes(x=County, y=death_rate)) + 
+  geom_bar(stat = "identity") + coord_flip() +
+    theme(axis.text.y = element_text(size = 6)) + 
+    ggtitle('Distribution of death rate by county')
+```
+
+
+Add one more plot: density of infected people per each county
+```{r}
+covid$density_cases %>% hist(xlab = 'Infection rate',
+                             main = 'Distribution of infection rate per each county')
+```
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,216 @@
+---
+title: "hierarchical"
+author: "Gulzina Kuttubekova"
+date: "4/22/2020"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(reshape)
+library(LearnBayes)
+library(mvtnorm)
+library(rmutil)
+```
+
+Read the dataset:
+```{r}
+covid <- read.csv("~/Desktop/spring2020/stat207/bayesian-analysis-of-COVID19-in-CA/data/Covid19-04-13-20.txt")
+```
+
+We estimate the proportions of infected people in each county:
+```{r}
+covid$inf_prop <- covid$Total.cases / sum(covid$Total.cases)
+```
+
+Using those proportions, find new total.cases:
+```{r}
+covid$new_total_cases <- round(covid$inf_prop*7.9*10^6)
+covid[,c("Total.cases", "new_total_cases")]
+```
+
+Find posterior mode and hessian matrix
+```{r}
+inits <- c(-0.5, 0.5)
+bebi_optim <- optim(par = inits, fn = betabinexch, 
+                    data = covid[,c('Deaths', 'Total.cases')],
+                    hessian = TRUE,
+                    control = list(fnscale = -1))
+```
+
+
+We found posterior mode of theta1 and theta2, as well the covariance matrix:
+```{r}
+delta = bebi_optim$par
+sigma = 2*solve(-bebi_optim$hessian)
+df = 4
+```
+
+Draw samples from posterior using rejection sampling and t-distribution as a proposal distirbution with mean delta and inflated covariance matrix found from Normal approximation of log-posterior:
+
+```{r}
+# proporsal t-distribution: to find constant C
+lq <- function(pars) {
+    # inflate sigma
+    return(dmvt(pars, delta = delta, sigma = 2*sigma, df = df))
+}
+```
+
+Find log(c):
+```{r}
+#' Find normalizing contant = upper bound C in rejection sampling
+#' 
+#' @param init initial value at which lp, lq are evaluated
+#' @param lp log posterior function 
+#' @param lq log proporsal function
+#' @return a value of log c
+find_c <- function(init, lp, lq, d = covid[,c('Deaths', 'Total.cases')]) {
+    
+    f = function(pars) {
+        return(lp(pars, data = d) - lq(pars))
+    }
+    
+    res = optim(par = init, fn = f, control = list(fnscale = -1,
+                                                  maxit = 10000000))
+    
+    return(res$value)
+}
+```
+
+```{r}
+logc <- find_c(lp = betabinexch,
+            lq = lq,
+            init = inits)
+```
+
+
+```{r}
+n <- 200000
+rej_sample <- rejectsampling(betabinexch, 
+                             list(m = delta, var = sigma, df = df),
+                             dmax = logc,
+                             n = n,
+                             data = covid[,c('Deaths', 'Total.cases')])
+
+rej_est_theta <- apply(rej_sample, MARGIN = 2, FUN = mean)
+rej_est_theta
+```
+
+Convert samples to previous scale:
+```{r}
+rej_sample[,1] <- exp(rej_sample[,1]) / (1 + exp(rej_sample[,1]))
+rej_sample[,2] <- exp(rej_sample[,2])
+```
+
+```{r}
+rej_ss <- data.frame(rej_sample)
+colnames(rej_ss) <- c('mu', 'tau')
+```
+
+```{r}
+apply(rej_ss, MARGIN = 2, FUN = mean)
+```
+
+Plot tau:
+```{r}
+ggdensity(rej_ss, 'tau', fill = 'blue')
+```
+
+
+
+
+Sample theta_i:
+```{r}
+sample_beta <- function(n, y, mu, tau) {
+    res = rbeta(1, shape1 = mu*tau + y, shape2 = (1-mu)*tau + n - y)
+    return(res)
+}
+```
+
+```{r}
+n = dim(rej_ss)[1]
+thetas <- matrix(NA, nrow = n, ncol = 58)
+
+for (i in 1:n) {
+    for (j in 1:58)
+        thetas[i,j] <- sample_beta(n = covid$Total.cases[j],
+                                   y = covid$Deaths[j],
+                                   mu = rej_ss$mu[i],
+                                   tau = rej_ss$tau[i])
+}
+```
+
+Plot thetas on the same plot:
+```{r}
+thetas <- data.frame(thetas)
+thetas_melt <- melt(thetas)
+
+colnames(thetas_melt) <- c('theta_i', 'value')
+```
+
+
+```{r}
+ggdensity(thetas_melt, 'value', fill = 'theta_i') + xlim(0, 0.1) +
+    rremove('legend')
+```
+
+
+
+
+
+
+
+Get estimations for each theta:
+```{r}
+sample_binom <- function(n, p) {
+    res = rbinom(1, size = n, prob = p)
+    return(res)
+}
+```
+
+```{r}
+y_reph <- matrix(NA, nrow = n, ncol = 58)
+
+for (i in 1:n) {
+    for (j in 1:58)
+        y_reph[i,j] <- sample_binom(n = covid$new_total_cases[j],
+                                    p = thetas[i,j])
+}
+```
+
+```{r}
+y_reph %>% apply(2, quantile, probs = c(0.025, 0.5, 0.975)) -> y_disth
+y_disth <- data.frame(y_disth)
+colnames(y_disth) <- covid$County
+y_disth
+```
+
+```{r}
+# use all 500 replicates! and calculate probabilities for each one!!! the last question
+prob_count <- sum(apply(y_reph, 1, sum) >= 250000)
+prob <- prob_count / n
+prob
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

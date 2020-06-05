@@ -1,0 +1,215 @@
+---
+title: "betabinom_custom"
+author: "Gulzina Kuttubekova"
+date: "4/22/2020"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(reshape)
+library(LearnBayes)
+library(rmutil)
+```
+
+Read the dataset:
+```{r}
+covid <- read.csv("~/Desktop/spring2020/stat207/bayesian-analysis-of-COVID19-in-CA/data/Covid19-04-13-20.txt")
+```
+
+We estimate the proportions of infected people in each county:
+```{r}
+covid$inf_prop <- covid$Total.cases / sum(covid$Total.cases)
+```
+
+Using those proportions, find new total.cases:
+```{r}
+covid$new_total_cases <- round(covid$inf_prop*7.9*10^6)
+covid[,c("Total.cases", "new_total_cases")]
+```
+
+Find posterior mode and hessian matrix
+```{r}
+inits <- c(-0.5, 0.5)
+bebi_optim <- optim(par = inits, fn = betabinexch, 
+                    data = covid[,c('Deaths', 'Total.cases')],
+                    hessian = TRUE,
+                    control = list(fnscale = -1))
+bebi_optim
+```
+
+We found posterior mode of theta1 and theta2, as well the covariance matrix:
+```{r}
+delta = bebi_optim$par
+sigma = 2*solve(-bebi_optim$hessian)
+df = 4
+```
+
+Draw samples from posterior using rejection sampling and t-distribution as a proposal distirbution with mean delta and inflated covariance matrix found from Normal approximation of log-posterior:
+
+```{r}
+# proporsal t-distribution: to find constant C
+lq <- function(pars) {
+    # inflate sigma
+    return(dmvt(pars, delta = delta, sigma = 2*sigma, df = df))
+}
+```
+
+Find log(c):
+```{r}
+#' Find normalizing contant = upper bound C in rejection sampling
+#' 
+#' @param init initial value at which lp, lq are evaluated
+#' @param lp log posterior function 
+#' @param lq log proporsal function
+#' @return a value of log c
+find_c <- function(init, lp, lq, d = covid[,c('Deaths', 'Total.cases')]) {
+    
+    f = function(pars) {
+        return(lp(pars, data = d) - lq(pars))
+    }
+    
+    res = optim(par = init, fn = f, control = list(fnscale = -1,
+                                                  maxit = 10000000))
+    
+    return(res$value)
+}
+```
+
+```{r}
+logc <- find_c(lp = betabinexch,
+            lq = lq,
+            init = init)
+logc
+```
+
+
+```{r}
+n <- 500
+rej_sample <- rejectsampling(betabinexch, 
+                             list(m = delta, var = sigma, df = df),
+                             dmax = logc,
+                             n = n,
+                             data = covid[,c('Deaths', 'Total.cases')])
+
+rej_est_theta <- apply(rej_sample, MARGIN = 2, FUN = mean)
+rej_est_theta
+```
+
+Convert samples to previous scale:
+```{r}
+rej_sample[,1] <- exp(rej_sample[,1]) / (1 + exp(rej_sample[,1]))
+rej_sample[,2] <- exp(rej_sample[,2])
+```
+
+```{r}
+rej_ss <- data.frame(rej_sample)
+colnames(rej_ss) <- c('mu', 'tau')
+```
+
+```{r}
+apply(rej_ss, MARGIN = 2, FUN = mean)
+```
+
+```{r}
+apply(rej_ss, MARGIN = 2, FUN = quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+ggdensity(rej_ss, 'mu', fill = 'red') + xlim(0, 0.06)
+```
+
+```{r}
+var(rej_ss$mu)
+```
+
+
+Calculate probs:
+```{r}
+d <- covid[,c('Deaths', 'Total.cases')]
+```
+
+```{r}
+sample_betabinom <- function(n, mu, tau) {
+    res = rbetabinom(1, size = n, mu, tau)
+    return(res)
+}
+```
+
+```{r}
+y_rep <- matrix(NA, nrow = 127, ncol = 58)
+
+for (i in 1:127) {
+    y_rep[i,] <- apply(covid[,6, drop=F], 1, sample_betabinom, 
+                       mu = rej_ss[i,1], tau = rej_ss[i,2])
+}
+```
+
+```{r}
+y_rep %>% apply(2, quantile, probs = c(0.025, 0.5, 0.975)) -> y_dist
+y_dist <- data.frame(y_dist)
+colnames(y_dist) <- covid$County
+y_dist
+```
+
+```{r}
+# use all 500 replicates! and calculate probabilities for each one!!! the last question
+prob_count <- sum(apply(y_rep, 1, sum) >= 250000)
+prob <- prob_count / 127
+prob
+```
+
+
+
+
+
+
+Perform Leave-one-out analysis:
+```{r}
+# sample using sir
+tpar <- list(m = delta, var = sigma, df = df)
+theta <- sir(betabinexch, tpar, 1000, d)
+```
+
+
+```{r}
+bayes.influence(rej_sample, d)
+```
+
+```{r}
+tpar=list(m=fit$mode,var=2*fit$var,df=4)
+theta=sir(betabinexch,tpar,1000,cancermortality)
+intervals=bayes.influence(theta,cancermortality)
+intervals
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

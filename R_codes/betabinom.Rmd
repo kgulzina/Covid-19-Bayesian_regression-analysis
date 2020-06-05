@@ -1,0 +1,115 @@
+---
+title: "betabinom"
+author: "Gulzina Kuttubekova"
+date: "4/22/2020"
+output: pdf_document
+---
+
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(reshape)
+library(LearnBayes)
+library(rmutil)
+```
+
+Read the dataset:
+```{r}
+covid <- read.csv("~/Desktop/spring2020/stat207/bayesian-analysis-of-COVID19-in-CA/data/Covid19-04-13-20.txt")
+```
+
+```{r}
+# sample from posterior distirbution directly
+n <- 500
+sum_y <- sum(covid$Deaths)
+sum_n <- sum(covid$Total.cases)
+thetasample1 <- rbeta(n, shape1 = sum_y + 0.5, shape2 = sum_n - sum_y + 0.5)
+```
+
+```{r}
+# posterior mean and credible interval for theta
+quantile(thetasample1, probs = c(0.025, 0.5, 0.975))
+var(thetasample1)
+```
+
+
+```{r}
+# report posterior mean and CI's
+thetasample1 %>% hist()
+```
+
+```{r}
+ss <- data.frame(posterior = thetasample1, 
+                 prior = rbeta(n, 0.5, 0.5))
+ss_melt <- melt(ss, measure.vars = c('posterior', 'prior'))
+colnames(ss_melt) <- c('type', 'theta')
+```
+
+
+```{r}
+ggdensity(ss_melt, 'theta', fill = 'type') + xlim(0, 0.06)
+```
+
+```{r}
+# total number of people who died in California
+real_tot_deaths <- covid$Deaths %>% sum()
+est_tot_deaths <- 0.02971612*sum(covid$Total.cases)
+
+c(real_tot_deaths, est_tot_deaths)
+```
+
+We estimate the proportions of infected people in each county:
+```{r}
+covid$inf_prop <- covid$Total.cases / sum(covid$Total.cases)
+```
+
+Using those proportions, find new total.cases:
+```{r}
+covid$new_total_cases <- round(covid$inf_prop*7.9*10^6)
+covid[,c("Total.cases", "new_total_cases")]
+```
+
+```{r}
+sample_binom <- function(n, p) {
+    res = rbinom(1, size = n, prob = p)
+    return(res)
+}
+```
+
+```{r}
+y_rep <- matrix(NA, nrow = 500, ncol = 58)
+
+for (i in 1:500) {
+    y_rep[i,] <- apply(covid[,6, drop=F], 1, sample_binom, p = thetasample1[i])
+}
+```
+
+```{r}
+y_rep %>% apply(2, quantile, probs = c(0.025, 0.5, 0.975)) -> y_dist
+y_dist <- data.frame(y_dist)
+colnames(y_dist) <- covid$County
+y_dist
+```
+
+Here you can try to estimate the probability that more than 20k people will die in Cali:
+```{r}
+# use all 500 replicates! and calculate probabilities for each one!!! the last question
+prob_count <- sum(apply(y_rep, 1, sum) >= 250000)
+prob <- prob_count / n
+prob
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

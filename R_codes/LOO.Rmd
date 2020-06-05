@@ -1,0 +1,305 @@
+---
+title: "LOO"
+author: "Gulzina Kuttubekova"
+date: "4/23/2020"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(reshape)
+library(LearnBayes)
+library(rmutil)
+```
+
+Read the dataset:
+```{r}
+covid <- read.csv("~/Desktop/spring2020/stat207/bayesian-analysis-of-COVID19-in-CA/data/Covid19-04-13-20.txt")
+
+d <- covid[,c('Deaths', 'Total.cases')]
+```
+
+Write a function which takes out one observation at a time. We will use SIR method to sample from p(theta|y(-i)), when ith observation is removed. 
+
+```{r}
+thetas <- rej_sample
+```
+
+```{r}
+i <- 1
+n <- dim(thetas)[1]
+w <- c()
+p <- c()
+
+# calculate w(theta_j)'s
+for (j in 1:n) {
+    w[j] <- betabinexch(thetas[j,], data = d[-i, ]) / betabinexch(thetas[j,], 
+                                                               data = d)
+}
+
+sum_w <- sum(w)
+
+for (j in 1:n) {
+    p[j] <- w[j] / sum_w
+}
+```
+
+```{r}
+# sample from thetas
+sample(thetas, 100, replace = TRUE, prob = p)
+```
+I couldn't sample thetas here, idk why.. Check later!!!!!
+
+
+
+Do another approach: we have to sample from the p(theta|y_(-i)) and get predictive distribution of y_i: p(y_i | y_(-i)). Compare sample from posterior distribution with the observed value:
+```{r}
+start=c(-3,3)
+fit=laplace(betabinexch,start,d[-i,])
+tpar=list(m=fit$mode,var=2*fit$var,df=4)
+theta=sir(betabinexch,tpar,1000,d[-i,])
+```
+
+```{r}
+# sample from predictive distribution
+y_1 <- c()
+
+for (s in 1:1000) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+}
+
+```
+
+```{r}
+y_1 %>% hist()
+abline(v=d[1,1], col="red")
+```
+
+```{r}
+par(mfrow = c(3,4))
+y_less <- c()
+y_greater <- c()
+
+for (i in 1:12) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,100,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:100) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 100
+    y_greater[i] <- sum(y_1 > d[i,1]) / 100
+    
+    # plot you findings
+    y_1 %>% hist(ylab = "", main = covid$County[i])
+    abline(v=d[i,1], col="red")
+}
+```
+
+```{r}
+# display p-values
+data.frame(covid$County[1:12], y_less, y_greater)
+```
+
+
+
+```{r}
+par(mfrow = c(3,4))
+y_less <- c()
+y_greater <- c()
+
+for (i in 13:24) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,100,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:100) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 100
+    y_greater[i] <- sum(y_1 > d[i,1]) / 100
+    
+    # plot
+    y_1 %>% hist(ylab = "", main = covid$County[i])
+    abline(v=d[i,1], col="red")
+}
+```
+
+```{r}
+# display p-values
+data.frame(covid$County[13:24], y_less[13:24], y_greater[13:24])
+```
+
+
+```{r}
+par(mfrow = c(3,4))
+y_less <- c()
+y_greater <- c()
+
+for (i in 25:36) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,100,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:100) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 100
+    y_greater[i] <- sum(y_1 > d[i,1]) / 100
+    
+    # plot
+    y_1 %>% hist(ylab = "", main = covid$County[i])
+    abline(v=d[i,1], col="red")
+}
+```
+
+```{r}
+# display p-values
+data.frame(covid$County[25:36], y_less[25:36], y_greater[25:36])
+```
+
+
+
+```{r}
+par(mfrow = c(3,4))
+y_less <- c()
+y_greater <- c()
+
+for (i in 37:48) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,100,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:100) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 100
+    y_greater[i] <- sum(y_1 > d[i,1]) / 100
+    
+    # plot
+    y_1 %>% hist(ylab = "", main = covid$County[i])
+    abline(v=d[i,1], col="red")
+}
+```
+
+```{r}
+# display p-values
+data.frame(covid$County[37:48], y_less[37:48], y_greater[37:48])
+```
+
+
+```{r}
+par(mfrow = c(3,4))
+y_less <- c()
+y_greater <- c()
+
+for (i in 49:58) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,100,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:100) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 100
+    y_greater[i] <- sum(y_1 > d[i,1]) / 100
+    
+    # plot
+    y_1 %>% hist(ylab = "", main = covid$County[i])
+    abline(v=d[i,1], col="red")
+}
+```
+
+```{r}
+# display p-values
+data.frame(covid$County[49:58], y_less[49:58], y_greater[49:58])
+```
+
+Pick only the ones with the highest deviations:
+```{r}
+par(mfrow = c(3,3))
+
+for (i in c(12, 14:16, 18, 30, 34, 35, 37)) {
+    start=c(-3,3)
+    fit=laplace(betabinexch,start,d[-i,])
+    tpar=list(m=fit$mode,var=2*fit$var,df=4)
+    theta=sir(betabinexch,tpar,2000,d[-i,])
+    
+    # sample from predictive distribution
+    y_1 <- c()
+
+    for (s in 1:2000) {
+    y_1[s] <- rbetabinom(1, size = d[i,2], 
+                         m = exp(theta[s,1]) / (1+exp(theta[s,1])),
+                         s = exp(theta[s,2]))
+    }
+    
+    # calculate p-values that y_i is less or greater than estimated values
+    y_less[i] <- sum(y_1 <= d[i,1]) / 2000
+    y_greater[i] <- sum(y_1 > d[i,1]) / 2000
+    
+    # plot
+    y_1 %>% hist(ylab = "", main = covid$County[i], xlab = 'death toll')
+    abline(v=d[i,1], col="red")
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
