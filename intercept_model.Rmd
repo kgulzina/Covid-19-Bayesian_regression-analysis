@@ -1,0 +1,111 @@
+---
+title: "intercept_model"
+author: "Gulzina Kuttubekova"
+date: "6/5/2020"
+output: pdf_document
+---
+
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(invgamma)
+library(ggpubr)
+```
+
+Add new scaling (weight) factor:
+
+```{r}
+# varaince scaling
+covid$weight <- covid$Population / 1000
+
+# omega matrix
+omega <- diag(1 / covid$weight)
+
+# response: y
+covid$y <- log(covid$Total.cases + epsilon)
+```
+
+Now, we fit the basic intercept model:
+```{r}
+# model 1
+lm1 <- lm(y ~ 1, data = covid)
+X1 <- model.matrix(lm1)
+```
+
+```{r}
+# find betahat
+find_betahat <- function(Omega, X, y) {
+    est = solve(t(X) %*% solve(Omega) %*% X) %*% t(X) %*% solve(Omega) %*% y
+    return(est)
+} 
+```
+
+```{r}
+betahat1 <- find_betahat(omega, X1, covid$y)
+betahat1
+```
+
+```{r}
+# find sigmahat
+find_sigmasqhat <- function(Omega, X, y, beta) {
+    n = length(y)
+    p = ncol(X)
+    est = (t(y-X%*%beta) %*% solve(Omega) %*% (y-X%*%beta)) / (n-p)
+    
+    return(est)
+}
+```
+
+```{r}
+sigmasqhat1 <- find_sigmasqhat(omega, X1, covid$y, betahat1)
+sigmasqhat1
+```
+
+Sample sigmasq from posterior:
+```{r}
+# constants
+N <- 5000
+n <- length(covid$y)
+p1 <- ncol(X1)
+
+mc1 <- data.frame(
+    sigmasq = rinvgamma(N, shape = (n-p1)/2, 
+                        rate = (n-p1)*sigmasqhat1[1,1]/2))
+
+sd_beta1 <- sqrt(mc1$sigmasq * c(solve(t(X1)%*%solve(omega)%*%X1)))
+
+mc1$mu <- rnorm(N, mean = as.vector(betahat1[,1]), sd = as.vector(sd_beta1))
+```
+
+```{r}
+ggdensity(mc1, 'mu', fill = 'gold') + 
+    ggtitle('Posterior distribution of intercept: mu')
+```
+
+
+```{r}
+post_mu <- ggdensity(mc1, 'mu', fill = 'gold')
+post_sigmasq <- ggdensity(mc1, 'sigmasq', fill = 'blue')
+ggarrange(post_mu, post_sigmasq)
+```
+
+# confidence intervals
+```{r}
+apply(mc1, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+betamap1 <- mean(mc1[,-1])
+```
+
+
+```{r}
+X1_est <- X1[counties,]
+betamap1*X1_est
+```
+
+
+
+
