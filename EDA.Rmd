@@ -7,7 +7,7 @@ output: pdf_document
 
 
 
-```{r}
+```{r, include=F}
 library(ggplot2)
 library(dplyr)
 ```
@@ -18,36 +18,100 @@ covid <- read.csv("~/Desktop/spring2020/stat207/Covid-19-Bayesian-analysis/data/
 ```
 
 ```{r}
-# create new variables: proportion of infected per county
-covid$density_cases <- covid$Total.cases / covid$Population
+Region1 <- c('Butte', 'Colusa', 'El Dorado', 'Glenn', 'Lassen', 'Modoc',
+            'Nevada', 'Placer', 'Plumas', 'Sacramento', 'Shasta', 'Sierra',
+            'Siskiyou', 'Sutter', 'Tehama', 'Yolo', 'Yuba')
+Region2 <- c('Del Norte', 'Humboldt', 'Lake', 
+            'Mendocino', 'Napa', 'Sonoma', 'Trinity')
+Region3 <- c('Alameda', 'Contra Costa', 'Marin', 
+            'San Francisco', 'San Mateo', 'Santa Clara', 'Solano')
+Region4 <- c('Alpine', 'Amador', 'Calaveras', 'Madera', 'Mariposa', 
+            'Merced', 'Mono', 'San Joaquin', 'Stanislaus', 'Tuolumne')
+Region5 <- c('Monterey', 'San Benito', 'San Luis Obispo', 
+            'Santa Barbara', 'Santa Cruz', 'Ventura')
+Region6 <- c('Fresno', 'Inyo', 'Kern', 'Kings', 'Tulare')
+Region7 <- c('Riverside', 'San Bernardino')
+Region8 <- c('Los Angeles')
+Region9 <- c('Orange')
+Region10 <- c('Imperial', 'San Diego')
+```
 
-# create new variables: rate of death per county
-covid$death_rate <- covid$Deaths / covid$Total.cases
+
+```{r}
+# add new categorical variable: Region
+covid$Region <- NA
+n <- length(covid$County)
+
+for (i in 1:n) {
+    
+    if (covid$County[i] %in% Region1) {
+        covid$Region[i] = 'Region1'
+    } else if (covid$County[i] %in% Region2) {
+        covid$Region[i] = 'Region2'
+    } else if (covid$County[i] %in% Region3) {
+        covid$Region[i] = 'Region3'
+    } else if (covid$County[i] %in% Region4) {
+        covid$Region[i] = 'Region4'
+    } else if (covid$County[i] %in% Region5) {
+        covid$Region[i] = 'Region5'
+    } else if (covid$County[i] %in% Region6) {
+        covid$Region[i] = 'Region6'
+    } else if (covid$County[i] %in% Region7) {
+        covid$Region[i] = 'Region7'
+    } else if (covid$County[i] %in% Region8) {
+        covid$Region[i] = 'Region8'
+    } else if (covid$County[i] %in% Region9) {
+        covid$Region[i] = 'Region9'
+    } else {
+        covid$Region[i] = 'Region10'
+    }
+}
+```
+
+Boxplot of number of infections by regions:
+```{r}
+epsilon <- 10^(0)
+covid %>% 
+    ggplot(aes(y = log(Total.cases + epsilon), x = Region)) + 
+    geom_boxplot() +
+    xlab("") +
+    ggtitle("Distribution of log(total cases) by region")
+```
+
+
+Start by describing the variability of the number of cases, $n_i$, especially as they relate to the county's population density.
+
+```{r}
+# read population density data
+density <- read.csv(
+    file = "~/Desktop/spring2020/stat207/Covid-19-Bayesian_regression-analysis/data/pop_density.txt", 
+    sep = "\t", 
+    header = F,
+    col.names = c('skip', 'Density', 'unit', 'County', 'State', 'skip2'))
+
+density <- density %>% select(c('Density')) %>% 
+    mutate_if(is.factor, as.character) %>% 
+    mutate_if(is.character, as.numeric) %>% 
+    cbind(density$County)
+
+colnames(density) <- c('Density', 'County')
 ```
 
 ```{r}
-covid
+# merge the density dataset with covid data
+covid <- covid %>% merge.data.frame(density, by = 'County')
 ```
 
-
-Start by describing the variability of the number of cases, $n_i$, especially as they relate to the county's population.
-
 ```{r}
-# scatter plot of number of infected and population
-covid %>% ggplot(aes(x = Population/(10^6), y = Total.cases)) + 
-    geom_point() +
-    geom_text(data = covid[covid$Population > 5000000,], 
-              aes(x = Population/(10^6)-1, y = Total.cases - 250, 
-                  label = 'Los Angeles', color = 'red')) +
+# scatter plot of number of infected and population density
+covid %>% ggplot(aes(x = Density, y = log(Total.cases + epsilon))) + 
+    geom_point() + 
     theme(legend.position = 'None') +
-    xlab('Population (million)') + 
-    ggtitle('Distirbution of COVID-19 cases vs. population')
+    xlab('Population density (sq/mi)') + 
+    ggtitle('Distribution of COVID-19 cases vs. population density')
 ```
 
-```{r}
-covid %>% filter(Population < 5000000) %>% 
-    ggplot(aes(x = Population, y = Total.cases)) + geom_point()
-```
+
 
 
 
