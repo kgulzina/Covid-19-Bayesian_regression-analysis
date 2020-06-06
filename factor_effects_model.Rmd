@@ -1,0 +1,114 @@
+---
+title: "factor_effects_model"
+author: "Gulzina Kuttubekova"
+date: "6/6/2020"
+output: pdf_document
+---
+
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(invgamma)
+library(ggpubr)
+library(mvtnorm)
+```
+
+
+Fit effects model to get design matrix:
+```{r}
+# model 4
+lm4 <- lm(y ~ Density + Region, data = covid)
+X4 <- model.matrix(lm4)
+```
+
+```{r}
+betahat4 <- find_betahat(omega, X4, covid$y)
+betahat4
+```
+
+
+
+```{r}
+sigmasqhat4 <- find_sigmasqhat(omega, X4, covid$y, betahat4)
+sigmasqhat4
+```
+
+Sample sigmasq from posterior:
+```{r}
+# constants
+p4 <- ncol(X4)
+
+mc4 <- data.frame(
+    sigmasq = rinvgamma(N, shape = (n-p4)/2, 
+                        rate = (n-p4)*sigmasqhat4[1,1]/2))
+
+# add beta samples
+beta4 <- c()
+
+# covariance matrix
+sd_beta4 <- solve(t(X4)%*%solve(omega)%*%X4)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = betahat4[,1],
+                          sigma = mc4$sigmasq[i] * sd_beta4)
+    
+    beta4 <- rbind(beta4, temp[1,])
+}
+
+mc4 <- cbind(mc4, beta4)
+```
+
+Confidence intervals
+```{r}
+apply(mc4, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+
+```{r}
+betamap4 <- apply(mc4[,-1], 2, mean)
+betamap4
+```
+
+Get estimates for different expected infections for different counties
+```{r}
+X4_est <- X4[counties,]
+estimate_infections(X4_est, betamap4)
+```
+
+
+
+
+Put all estimates of sigmasq together for one plot:
+```{r}
+sigmas <- data.frame(
+    model1 = mc1$sigmasq,
+    model2 = mc2$sigmasq,
+    model3 = mc3$sigmasq,
+    model4 = mc4$sigmasq
+)
+
+# melt it
+sigmas_melted <- melt(sigmas)
+colnames(sigmas_melted) <- c('model', 'value')
+```
+
+```{r}
+sigmas_melted %>% ggdensity('value', fill = 'model') + 
+    ggtitle('Posterior distribution of sigmasq')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
