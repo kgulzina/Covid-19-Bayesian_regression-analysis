@@ -1,0 +1,98 @@
+---
+title: "one_factor_model"
+author: "Gulzina Kuttubekova"
+date: "6/5/2020"
+output: pdf_document
+---
+
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(invgamma)
+library(ggpubr)
+library(mvtnorm)
+```
+
+
+Fit factors model to get design matrix:
+```{r}
+# model 1
+lm2 <- lm(y ~ Density, data = covid)
+X2 <- model.matrix(lm2)
+```
+
+```{r}
+betahat2 <- find_betahat(omega, X2, covid$y)
+betahat2
+```
+
+```{r}
+sigmasqhat2 <- find_sigmasqhat(omega, X2, covid$y, betahat2)
+sigmasqhat2
+```
+
+Sample sigmasq from posterior:
+```{r}
+# constants
+p2 <- ncol(X2)
+
+mc2 <- data.frame(
+    sigmasq = rinvgamma(N, shape = (n-p2)/2, 
+                        rate = (n-p2)*sigmasqhat2[1,1]/2),
+    mu = NA,
+    beta = NA)
+
+# covariance matrix
+sd_beta2 <- solve(t(X2)%*%solve(omega)%*%X2)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = betahat2[,1],
+                          sigma = mc2$sigmasq[i] * sd_beta2)
+    mc2[i, 2:3] <- temp[1,]
+}
+```
+
+Give posterior distirbution of sigma2 compared to 
+```{r}
+ggdensity(mc2, 'sigmasq', fill = 'blue')
+```
+
+Confidence intervals
+```{r}
+apply(mc2, 2, quantile, probs = c(0.025, 0.5, 0.975))
+betamap2 <- apply(mc2[,-1], 2, mean)
+```
+
+Get estimates for different expected infections for different counties
+```{r}
+# counties numbers
+counties <- c(5, 12, 16, 19, 30, 31, 36, 37, 42, 43)
+
+# get expected number of infections
+estimate_infections <- function(X, beta) {
+    est = X %*% beta
+    est = exp(est) - 1
+    return(est)
+}
+```
+
+```{r}
+X2_est <- X2[counties,]
+estimate_infections(X2_est, betamap2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
