@@ -1,0 +1,170 @@
+---
+title: "g-priors"
+author: "Gulzina Kuttubekova"
+date: "6/6/2020"
+output: pdf_document
+---
+
+
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(invgamma)
+library(ggpubr)
+library(mvtnorm)
+```
+
+
+### M2: Sample sigmasq from posterior
+```{r}
+# constants
+p2 <- ncol(X2)
+
+mc2gg <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat2[,1]/2 + t(betahat2)%*%t(X2)%*%X2%*%betahat2 / (2*g2+1)))
+
+# add beta samples
+beta2 <- c()
+
+# covariance matrix
+sd_beta2 <- solve(t(X2)%*%solve(omega)%*%X2)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g2/(g2+1))*betahat2[,1],
+                          sigma = (g2/(g2+1))*mc2gg$sigmasq[i] * sd_beta2)
+    
+    beta2 <- rbind(beta2, temp[1,])
+}
+
+mc2gg <- cbind(mc2gg, beta2)
+```
+
+```{r}
+apply(mc2gg, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# gbetamap3
+gbetamap2 <- apply(mc2gg[,-1], 2, mean)
+
+# find yhat
+gyhat2 <- X2%*%gbetamap2
+
+# calc SSE
+SSEg2 <- sum((covid$y-gyhat2)^2)
+
+# calc R2
+R2g <- 1 - SSEg2/SST
+R2g
+```
+
+### M3: Sample sigmasq from posterior
+```{r}
+# constants
+p3 <- ncol(X3)
+
+mc3gg <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat3[,1]/2 + t(betahat3)%*%t(X3)%*%X3%*%betahat3 / (2*g3+1)))
+
+# add beta samples
+beta3 <- c()
+
+# covariance matrix
+sd_beta3 <- solve(t(X3)%*%solve(omega)%*%X3)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g3/(g3+1))*betahat3[,1],
+                          sigma = (g3/(g3+1))*mc3gg$sigmasq[i] * sd_beta3)
+    
+    beta3 <- rbind(beta3, temp[1,])
+}
+
+mc3gg <- cbind(mc3gg, beta3)
+```
+
+```{r}
+apply(mc3gg, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# gbetamap3
+gbetamap3 <- apply(mc3gg[,-1], 2, mean)
+
+# find yhat
+gyhat3 <- X3%*%gbetamap3
+
+# calc SSE
+SSEg3 <- sum((covid$y-gyhat3)^2)
+
+# calc R2
+R3g <- 1 - SSEg3/SST
+R3g
+```
+
+
+
+
+### M4: Sample sigmasq from posterior
+```{r}
+# constants
+p4 <- ncol(X4)
+
+mc4gg <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat4[,1]/2 + t(betahat4)%*%t(X4)%*%X4%*%betahat4 / (2*g4+1)))
+
+# add beta samples
+beta4 <- c()
+
+# covariance matrix
+sd_beta4 <- solve(t(X4)%*%solve(omega)%*%X4)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g4/(g4+1))*betahat4[,1],
+                          sigma = (g4/(g4+1))*mc4gg$sigmasq[i] * sd_beta4)
+    
+    beta4 <- rbind(beta4, temp[1,])
+}
+
+mc4gg <- cbind(mc4gg, beta4)
+```
+
+```{r}
+apply(mc4gg, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# gbetamap3
+gbetamap4 <- apply(mc4gg[,-1], 2, mean)
+
+# find yhat
+gyhat4 <- X4%*%gbetamap4
+
+# calc SSE
+SSEg4 <- sum((covid$y-gyhat4)^2)
+
+# calc R2
+R4g <- 1 - SSEg4/SST
+R4g
+```
+
+
+
+
+
+
+Bayes factors
+```{r}
+BF21 <- (1+g2)^((n-p2-1)/2) / (1 + g2*(1-R2g))^((n-1)/2)
+BF31 <- (1+g3)^((n-p3-1)/2) / (1 + g3*(1-R3g))^((n-1)/2)
+c(BF21, BF31)
+```
+
+```{r}
+BF43 <- 
+```
+

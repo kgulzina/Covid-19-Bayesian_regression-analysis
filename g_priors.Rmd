@@ -16,6 +16,234 @@ library(mvtnorm)
 ```
 
 
+Find g's
+```{r}
+find_g <- function(R2, n, p) {
+    g = max( (R2 / p) / (1-R2)*(n-1-p) - 1, 0)
+    return(g)
+}
+```
+
+```{r}
+g1 <- 0
+g2 <- find_g(Rsq2, n, p2)
+g3 <- find_g(Rsq3, n, p3)
+g4 <- find_g(Rsq4, n, p4)
+
+c(g1, g2, g3, g4)
+```
+
+### Fit model2:
+```{r}
+# find X
+Xg2 <- scale(covid$Density, center = T, scale = F)
+
+# betahat
+gbetahat2 <- 
+    solve(t(Xg2)%*%solve(omega)%*%Xg2)%*%t(Xg2)%*%solve(omega)%*%covid$y
+
+# sigmasqhat stays the same
+```
+
+Sample sigmasq from posterior:
+```{r}
+mcg2 <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat2[,1]/2 + 
+                            t(gbetahat2)%*%t(Xg2)%*%Xg2%*%gbetahat2 / (2*g2+1))
+                        )
+
+# add beta samples
+beta2 <- c()
+
+# covariance matrix
+sd_beta2 <- solve(t(Xg2)%*%solve(omega)%*%Xg2)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g2/(g2+1))*gbetahat2[,1],
+                          sigma = (g2/(g2+1))*mcg2$sigmasq[i] * sd_beta2)
+    
+    beta2 <- rbind(beta2, temp[1,])
+}
+
+mcg2 <- cbind(mcg2, beta2)
+
+# add mu samples
+mu2 <- c()
+
+for (i in 1:N) {
+    mu2[i] <- rnorm(1, 
+                    mean = sum(covid$weight*(covid$y - Xg2*mcg2$beta2[i])) / sum(covid$weight),
+                    sd = sqrt(mcg2$sigmasq[i] / sum(sum(covid$weight))))
+}
+
+mcg2 <- cbind(mcg2, mu2)
+```
+
+```{r}
+apply(mcg2, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# find yhat
+gyhat2 <- 3.718898 + 0.003672258 * Xg2
+
+# calc SSE
+SSEg2 <- sum((covid$y-gyhat2)^2)
+
+# calc R2
+R2g <- 1 - SSEg2/SST
+```
+
+
+
+
+
+
+
+### Repeat the same case for model 3
+
+```{r}
+# find X
+Xg3 <- X3[,-1]
+Xg3 <- apply(Xg3, 2, scale, scale = F)
+
+# betahat
+gbetahat3 <- 
+    solve(t(Xg3)%*%solve(omega)%*%Xg3)%*%t(Xg3)%*%solve(omega)%*%covid$y
+
+# sigmasqhat stays the same
+```
+
+Sample sigmasq from posterior:
+```{r}
+mcg3 <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat3[,1]/2 + 
+                            t(gbetahat3)%*%t(Xg3)%*%Xg3%*%gbetahat3 / (2*g3+1))
+                        )
+
+# add beta samples
+beta3 <- c()
+
+# covariance matrix
+sd_beta3 <- solve(t(Xg3)%*%solve(omega)%*%Xg3)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g3/(g3+1))*gbetahat3[,1],
+                          sigma = (g3/(g3+1))*mcg3$sigmasq[i] * sd_beta3)
+    
+    beta3 <- rbind(beta3, temp[1,])
+}
+
+mcg3 <- cbind(mcg3, beta3)
+
+# add mu samples
+mu3 <- c()
+
+for (i in 1:N) {
+    mu3[i] <- rnorm(1, 
+                    mean = sum(covid$weight*(covid$y - Xg3%*%t(mcg3[i,-1]))) / sum(covid$weight),
+                    sd = sqrt(mcg3$sigmasq[i] / sum(sum(covid$weight))))
+}
+
+mcg3 <- cbind(mcg3, mu3)
+```
+
+```{r}
+apply(mcg3, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# gbetamap3
+gbetamap3 <- apply(mcg3[,-c(1,11)], 2, mean)
+
+# find yhat
+gyhat3 <- 2.565894 + Xg3%*%gbetamap3
+
+# calc SSE
+SSEg3 <- sum((covid$y-gyhat3)^2)
+
+# calc R2
+R3g <- 1 - SSEg3/SST
+R3g
+```
+
+
+
+### Repeat analysis model4
+
+```{r}
+# find X
+Xg4 <- X4[,-1]
+Xg4 <- apply(Xg4, 2, scale, scale = F)
+
+# betahat
+gbetahat4 <- 
+    solve(t(Xg4)%*%solve(omega)%*%Xg4)%*%t(Xg4)%*%solve(omega)%*%covid$y
+
+# sigmasqhat stays the same
+```
+
+Sample sigmasq from posterior:
+```{r}
+mcg4 <- data.frame(
+    sigmasq = rinvgamma(N, shape = n/2, 
+                        rate = sigmasqhat4[,1]/2 + 
+                            t(gbetahat4)%*%t(Xg4)%*%Xg4%*%gbetahat4 / (2*g4+1))
+                        )
+
+# add beta samples
+beta4 <- c()
+
+# covariance matrix
+sd_beta4 <- solve(t(Xg4)%*%solve(omega)%*%Xg4)
+
+for (i in 1:N) {
+    temp <- rmvnorm(1, mean = (g4/(g4+1))*gbetahat4[,1],
+                          sigma = (g4/(g4+1))*mcg4$sigmasq[i] * sd_beta4)
+    
+    beta4 <- rbind(beta4, temp[1,])
+}
+
+mcg4 <- cbind(mcg4, beta4)
+
+# add mu samples
+mu4 <- c()
+
+for (i in 1:N) {
+    mu4[i] <- rnorm(1, 
+                    mean = sum(covid$weight*(covid$y - Xg4%*%t(mcg4[i,-1]))) / sum(covid$weight),
+                    sd = sqrt(mcg4$sigmasq[i] / sum(sum(covid$weight))))
+}
+
+mcg4 <- cbind(mcg4, mu4)
+```
+
+```{r}
+apply(mcg4, 2, quantile, probs = c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# gbetamap3
+gbetamap4 <- apply(mcg4[,-c(1,12)], 2, mean)
+
+# find yhat
+gyhat4 <- 2.098496 + Xg4%*%gbetamap4
+
+# calc SSE
+SSEg4 <- sum((covid$y-gyhat4)^2)
+
+# calc R2
+R4g <- 1 - SSEg4/SST
+R4g
+```
+
+
+
+
+
+
 
 
 
