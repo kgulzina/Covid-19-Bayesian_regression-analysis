@@ -18,14 +18,52 @@ library(mvtnorm)
 
 ```{r}
 # sample all together
-ytildes <- c()
+# LA county = 19th on the row
 
-for (i in N) {
-    
-}
+# constants
+tsigma1 <- sigmasqhat1[,1] * (omega[19,19]+t(X1[19,])%*%solve(t(X1)%*%solve(omega)%*%X1)%*%X1[19,])
+
+tsigma2 <- sigmasqhat2[,1] * (omega[19,19]+t(X2[19,])%*%solve(t(X2)%*%solve(omega)%*%X2)%*%X2[19,])
+
+tsigma3 <- sigmasqhat3[,1] * (omega[19,19]+t(X3[19,])%*%solve(t(X3)%*%solve(omega)%*%X3)%*%X3[19,])
+
+tsigma4 <- sigmasqhat4[,1] * (omega[19,19]+t(X4[19,])%*%solve(t(X4)%*%solve(omega)%*%X4)%*%X4[19,])
+
+ytildes <- data.frame(
+    model1 = exp(rmvt(N, sigma = tsigma1, df = n-ncol(X1), 
+                      delta = X1[19,]%*%betahat1[,1])) - 1,
+    model2 = exp(rmvt(N, sigma = tsigma2, df = n-ncol(X2),
+                      delta = X2[19,]%*%betahat2[,1])) - 1,
+    model3 = exp(rmvt(N, sigma = tsigma3, df = n-ncol(X3),
+                      delta = X3[19,]%*%betahat3[,1])) - 1,
+    model4 = exp(rmvt(N, sigma = tsigma4, df = n-ncol(X4),
+                      delta = X4[19,]%*%betahat4[,1])) - 1
+)
 ```
 
+```{r}
+apply(ytildes, 2, mean)
+```
 
+```{r}
+# melt it
+ytildes_melted <- melt(ytildes)
+colnames(ytildes_melted) <- c('model', 'value')
+
+# plot it
+ytildes_melted %>% ggdensity('value', fill = 'model') + 
+    ggtitle('Posterior predictive distribution of number of infections in LA county')
+```
+
+Compute R2's
+```{r}
+SST <- sum((covid$y - betamap1)^2)
+Rsq2 <- 1 - sum((covid$y - X2%*%betamap2)^2) / SST
+Rsq3 <- 1 - sum((covid$y - X3%*%betamap3)^2) / SST
+Rsq4 <- 1 - sum((covid$y - X4%*%betamap4)^2) / SST
+
+c(Rsq2, Rsq3, Rsq4)
+```
 
 
 
