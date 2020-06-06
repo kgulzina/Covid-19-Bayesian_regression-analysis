@@ -155,7 +155,7 @@ p(\pmb{\beta}, \sigma^2 | y, X) & = p(\pmb{\beta} | y, X, \sigma^2) p(\sigma^2 |
  Posterior marginal distribution of $\sigma^2$ is given as 
   $$p(\sigma^2 | y, X)  = IG (\frac{n-p}{2}, \frac{(n-p)\hat{\sigma^2}}{2})$$
 
-where $p = $ \# of parameters in regression model, i.e. $p =$ rank(X). Note that $\sigma^2$ is also estimated using WLS method: $$\hat{\sigma^2} = \frac{(y-X\hat{\pmb{\beta}})^T \Omega^{-1} (y-X\hat{\pmb{\beta}})}{n-p}$$   Here, $IG(\alpha, \gamma)$ = Inverse-Gamma$(\alpha, \gamma)$. 
+where $p = $ \# of parameters in regression model, i.e. $p =$ rank(X). Note that $\sigma^2$ is also estimated using WLS method: $$\hat{\sigma}^2 = \frac{(y-X\hat{\pmb{\beta}})^T \Omega^{-1} (y-X\hat{\pmb{\beta}})}{n-p}$$   Here, $IG(\alpha, \gamma)$ = Inverse-Gamma$(\alpha, \gamma)$. 
 
 
 % how to sample
@@ -176,7 +176,7 @@ Since overall structure of posterior is the same for all 4 models, sampling algo
 2. To sample from posterior predictive distribution:
 
 \begin{itemize}
-\item Draw $\pmb{\beta} \sigma^2$ from $p(\pmb{\beta}, \sigma^2 | Y, X)$
+\item Draw $\pmb{\beta}, \sigma^2$ from $p(\pmb{\beta}, \sigma^2 | Y, X)$
 \item Draw $\tilde{y}$ from $\pmb{\beta} \sim N(\tilde{X}\pmb{\beta}, \sigma^2\Omega)$
 \end{itemize}
 
@@ -260,12 +260,16 @@ Hence $\pmb{\beta}$ is modified as:
 We also obtain samples of $\tilde{y}_{ij}$ from posterior predictive distribution, and compare its distribution predicted by 4 models. We chose the most populated county Los Angeles for this purpose. 
 
 % compare first 4 models by R2
-We also calculate $R^2$ of each model in order to compare them. It would more appropriate to compare models by another measure, for instance Bayes factor. Since we can't get nice form of Bayes factor with non-informative priors, we re\-run all four models with G\-priors. 
+We also calculate $R^2 = 1 - \frac{SSE}{SST}$ of each model in order to compare them. Note that $R^2$ of model 1, i.e. $R^2_1 = 0$ since $SSE_1 = ||y-\hat{y}_1||^2 = SST$. It would be more appropriate to compare models by another measure, for instance Bayes factor. Since we can't get nice form of Bayes factor with non-informative priors, we re\-run all four models with G\-priors. 
 
 % what does G-prior mean  MODIFY - Maybe you will need it or nooot IDK
 \subsubsection{Regression models with Zellner's G-prior}
 
+Regression models with G-priors are given in the following form:
+
 $$p(Y | X, \beta, \sigma^2) = N(Y | \pmb{\mu} + X\beta, \sigma^2)$$
+
+$$ $$
 
 
 
@@ -290,14 +294,7 @@ $$1. \hspace{2mm} H_0: \eta_1 = \eta_2 = ... = \eta_5$$ In other words we want t
 
 $$2. \hspace{2mm} H_0: \beta = 0$$ In other words, we want to test if population density if significant enough and worth considering. 
 
-
-
-% test quantities - MAYBE
-From EDA there are some unusual findings in observed data. For instance, San Francisco county with 884,363 population has almost the same number of infected people as those with a substantially higher population. Orange and San Diego counties have almost the same population densities, but San Diego has 1.5 times more infected people than Orange county. We want to use this phenomenon in order to assess model fit. We define test quantity 
-
-$$T(n_i, \lambda_i) = \frac{n_i}{\sum n_i}$$ 
-
-= proportion of number of infected for county $i$ over the total number of infected people in California.
+Note that these hypothesis can be tested using different methods, such as by comparing models posterior predictive performance or by comparing posterior distributions of parameters as we did later in the analysis. 
 
 
 
@@ -429,7 +426,7 @@ From Tables \ref{tab:infections} and \ref{tab:infectionss} we see that the worst
 
 
 
-% plot with checks - MODIFY :LA county
+% plot with checks
 \begin{figure}[t]
 \centering\includegraphics[scale=.30]{LA.jpeg}
 \caption{Distribution of number of infections in Los Angeles county estimated by model 1-4.}
@@ -438,24 +435,43 @@ From Tables \ref{tab:infections} and \ref{tab:infectionss} we see that the worst
 
 
 
-% Model checks - draw samples from posterior predictive distribution - MODIFY: comment on the table above
-We draw 5,000 samples from the posterior predictive distribution of $n_i$ for each county. We included the samples of $\theta_i$'s from the previous study's hierarchical model to obtain samples of predictive distribution of the number of deaths. If the model fits the data well, it should be able to replicate data. We noticed in EDA that Los Angeles county has the largest proportion of infections across counties in California. We use this quantity as $T(\mathbf{n}, \lambda)$ and calculate the probabilities of observing more extreme values of it from replicated data for different counties. Counties in Figure \ref{fig:quantities} mostly have some discrepancies from the general trend which is confirmed by posterior probabilities in Table \ref{tab:postprobs}. 
-
+% Model checks - draw samples from posterior predictive distribution
+We noticed in EDA that Los Angeles county has the largest proportion of infections across counties in California. So we draw 5,000 samples from the posterior predictive distribution of $y_{i,j}$ for Los Angeles county. As we see from Figure \ref{fig:LA} estimates are stabilized for models 3 and 4. Actually, there is almost no difference in posterior predictive distributions generated by model 3 and 4. It agains suggests that reduced model with region as factor performs as good as full model. Note that true observed value is 9,420 infections and both models 1 and 2 underestimated that value. 
  
 
-% overall computational performance - MODIFY
-There was a tremendous difference in the computation time of two models for obtaining samples from posterior. I.e model 2 required 3 times more time than model 1 for the same number of samples. Since we employed a combination of Metropolis-Hastings algorithm and rejection algorithms for model 2, it required more time to run 5 chains and obtain 50,000 samples from posterior. That time requirement triples since we obtain samples of $\tilde{n}_i$ and then samples of $\tilde{y}_i$ for each county. 
-
-% model complexity - MODIFY
-Although the second model is more complex, it was easier to obtain full conditionals and construct a working sampling algorithm. We could use Gibbs sampler for the first model as well if we treated $\lambda_i$'s as a latent variable. Our approach was to use the Griddy approach to sample from $p(\alpha, \beta | mathbf{n})$ which created a lot of computational issues so we manually simplified the kernel of $p(\alpha, \beta | mathbf{n})$ and wrote many additional functions to evaluate density only. 
+% overall computational performance
+There wasn't much difference in the computation time of the models for obtaining samples from joint posterior and posterior predictive distribution. This is because we have all posterior distributions in closed form and we can directly sample from them. 
 
 
+% compare R-squares with non-informative prior - MODIFY
+\begin{table}
+\caption{$R^2$ measure of models w.r.t. different priors.}
+\label{tab:infectionss}
+\begin{center}
+\begin{tabular}{ccccc}
+\hline
+\hline
+\\[-5pt]
+\multicolumn{1}{c}{Prior} &
+\multicolumn{1}{c}{M1} &
+\multicolumn{1}{c}{M2} &
+\multicolumn{1}{c}{M3} &
+\multicolumn{1}{c}{M4}\\
+\hline
+$1/\sigma^2$ &	0&   0.410 & 0.656 & 0.742\\
+g-prior &	396&   141 & 86 & h\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+
+% comment on R2's - MODIFY
+As expected, $R^2$ increases as we include more factors to the model. If the variation in $y$ explained by regression model increases by almost \%41 when we added population density and by \%65.6 when we added region covariates. However, when we add population density given the region information, that percentage increase only by ~\%8. 
 
 
 
-
-
-
+% compare Bayes factors with g-priors - MODIFY
 
 
 
@@ -468,12 +484,19 @@ Although the second model is more complex, it was easier to obtain full conditio
 
 \section{Discussion} % - MODIFY
 
-% intro - MODIFY
-We employed two different constructions of the Poisson-Binomial models. We treated the number of infected people as a random variable along with the number of deaths per county. Our preliminary results showed that the infection rate and death rate across counties are not homogenous. It was also confirmed throughout by fitting the two models above. 
+% intro
+We employed four different constructions of regression model. We treated the number of infected people as a random variable. Our preliminary results showed that the infection rate across counties is not homogenous. It was also confirmed throughout by fitting the models above. 
 
-% MODIFY
+% was it worth to add region? population density? - MODIFY (Bayes factors???)
+As we see from the analysis above, it's both worth considering region information and population density to the model. Both of those factors were successful in some extent in explaining the variation in the number of infections in California. However, if it's worth considering both factors at the same time is under doubt, since we couldn't see much difference when comparing performances of model 3 and 4. Obviously the more factors you add, it's always better for the model, from mathematical point of view. In practice it doesn't always work that way. At this point, since we get those covariates for granted (population density and region information from US census bureau), it's worth adding them both. For future, we may want to add more covariates as we see there is still room for improvement. In that case we'll have to reconsider our choice of factors since some of them might be correlated and carry the same information. 
+
+
+% is there other models to consider/factors to add? - MODIFY
+
+
+
 % Talk about future: time when will we reach that 20%, how to slow the spread and find the patterns in different counties
-We assumed that $20\%$ of people in California will contract the virus. Actually we used it as a piece of prior information in the first model and used it indirectly in the second model as well. We ignored the time feature of the spread of the virus, i.e we are not interested in estimating when will those $20\%$ be infected. So it can be the next step to include time in our model. 
+In this analysis we ignored the time feature of the spread of the virus. So it can be the next step to include time in our model, i.e consider time series model. 
 
 % Time-space varying parameter
 As a next step, we can consider a model that accounts for the time and space varying nature of the spread of the virus. I.e we might want to employ Gaussian or Poisson processes that are suitable for time series as well as spatial data. 
