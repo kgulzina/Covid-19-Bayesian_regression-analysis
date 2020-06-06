@@ -1,0 +1,32 @@
+---
+title: "g-priors"
+author: "Gulzina Kuttubekova"
+date: "6/6/2020"
+output: pdf_document
+---
+
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(invgamma)
+library(ggpubr)
+library(mvtnorm)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
