@@ -30,12 +30,12 @@
 % write what you will do here
 We examine the dataset of COVID-19 cases in California. We are specifically interested in the number of infected people per county and if those numbers differ. We also look for a possible correlation between the number of infected people and the population density in each county. For an easier analysis, we used clustering (groups) of 58 counties in California provided by CA census. We employ four regression models to examine the infection rate and assess models by posterior predictive checks. 
 
-% results - MODIFY 
-A modified hierarchical model on the joint distribution of the number of infections and the number of deaths showed a better fit than the hierarchical model which doesn't take into account the mortality rate and its distribution. In general, we saw systematic differences in the number of deaths and infections across counties. The assumption that the mean number of the number of infections is 20\% of the population had a high impact on the posterior distribution in the first model.
+% results
+Our main findings show that population density plays a major role in predicting the total number of infections. Also, it's worth dividing counties into groups by their specific characteristics. We also concluded that, using Bayes factors with g-priors set on coefficient parameters, that both density population and region factor are worth considering in the same model. 
 
 
 \begin{keywords}
-Bayesian regression analysis, COVID-19, hierarchical models, MCMC
+Bayesian regression analysis, COVID-19, g-priors, hierarchical models, MCMC
 \end{keywords}
 \end{abstract}
 
@@ -146,7 +146,7 @@ p(\pmb{\beta}, \sigma^2 | y, X) & = p(\pmb{\beta} | y, X, \sigma^2) p(\sigma^2 |
 &\propto N(y | XB, \Sigma) \frac{1}{\sigma^2}
 \end{align*}
  
- where $$\Sigma = \sigma^2 \Omega$$ $$\Omega = diag(1/\omega_{1,1}, 1/\omega_{1,2}, ..., 1/\omega_{10,1})$$
+ where $$\Sigma = \sigma^2 \Omega$$ $$\Omega = diag(1/\omega_{1,1}, 1/\omega_{2,2}, ..., 1/\omega_{n,n})$$
  
  Since we set non-informative prior, we know that posterior distribution of $\beta$ coincides with WLS estimates asymptotic distribution. I.e. 
  
@@ -254,7 +254,7 @@ Hence $\pmb{\beta}$ is modified as:
 
 
 
-\subsection{Model assessment} % MODIFY
+\subsection{Model assessment}
 
 % compare models by posterior predictive distribution of LA county by 4 models
 We also obtain samples of $\tilde{y}_{ij}$ from posterior predictive distribution, and compare its distribution predicted by 4 models. We chose the most populated county Los Angeles for this purpose. 
@@ -267,10 +267,31 @@ We also calculate $R^2 = 1 - \frac{SSE}{SST}$ of each model in order to compare 
 
 Regression models with G-priors are given in the following form:
 
-$$p(Y | X, \beta, \sigma^2) = N(Y | \pmb{\mu} + X\beta, \sigma^2)$$
+$$p(Y | X, \beta, \sigma^2) = N(Y | \pmb{\mu} + X_c\beta, \sigma^2\Omega)$$
 
-$$ $$
+$$p(\beta | 0, g\sigma^2 (X_c^TX_c)^{-1})$$
 
+$$p(\sigma^2, \mu) \propto \frac{1}{\sigma^2}$$
+
+$X_c$ is centralized design matrix. This leads to a posterior of the form: 
+
+$$p(\mu, \beta, \sigma^2 | Y) = p(\sigma^2 | Y)p(\beta|Y, \sigma^2)p(\mu|Y, \sigma^2)$$
+
+$$p(\sigma^2 | Y) = IG(\frac{n}{2}, \frac{\hat{\sigma}^2}{2} + \frac{\hat{\beta}^T X^T X \hat{\beta}}{2g+1})$$
+
+$$p(\beta|Y, \sigma^2) = N(\frac{g}{1+g}\hat{\beta}, \frac{g}{1+g}\sigma^2(X^T\Omega^{-1}X)^{-1})$$
+
+where $\hat{\beta}$ is WLS estimate of $\beta$. 
+
+$$p(\mu|Y, \beta, \sigma^2) = N(\hat{\mu}, \frac{\sigma^2}{\sum_{i=1}^n\omega_{i,i}})$$
+
+$$\hat{\mu} = \frac{\sum_{i=1}^n\omega_{i,i}(y_i - x^c_i\beta)}{\sum_{i=1}^n\omega_{i,i}}$$
+
+
+% how do we choose value of g
+We estimate $g$ separately for each model using \textit{local Empirical Bayes} approach (Liang et al., 2008). Let 
+
+$$\hat{g}_{LEB} = max\{\frac{R^2/p}{(1-R^2) / (n-1-p)} - 1, 0\}$$
 
 
 % Bayes factors with G-priors
@@ -278,12 +299,12 @@ Then we have Bayes factor of the form:
 
 \begin{align*}
 BF_{1,2} & = \frac{p(y | M1, g)}{p(y | M2, g)} \\
-&= (1+g)^{\frac{p2-p1}{2}}\Big(\frac{(1+g(1-R^2_{m2}))}{(1+g(1-R^2_{m1}))}\Big)^{\frac{n-1}{2}}
+&= \frac{(1+g)^{\frac{p2}{2}}}{(1+g)^{\frac{p1}{2}}}\\
+&\times \Big(\frac{(1+g(1-R^2_{m2}))}{(1+g(1-R^2_{m1}))}\Big)^{\frac{n-1}{2}}
 \end{align*}
 
 where $g$ is a constant which comes from G-prior. M1 is the model 1 with R-square: $R^2_{m1}$ and $p1 = rank(X_1)$. Similarly $R^2_{m2}$ is R-square measure of model 2 and $p2 = rank(X_2)$. 
 
-% how do we choose value of g: - MODIFY
 
 
 % hypothesis testing
@@ -353,7 +374,7 @@ We obtain 5,000 sample draws from  joint posterior distribution of $\mu, \beta, 
 
 
 
-% comparing models - MODIFY
+% comparing models
 \subsection{Comparing the models}
 
 We fit four regression models in total to the COVID-19 data. To account for potential overdispersion and zero-inflated dataset, we add some epsilon (=1) and log-transform the total number of cases and treat it as a response variable.
@@ -443,7 +464,7 @@ We noticed in EDA that Los Angeles county has the largest proportion of infectio
 There wasn't much difference in the computation time of the models for obtaining samples from joint posterior and posterior predictive distribution. This is because we have all posterior distributions in closed form and we can directly sample from them. 
 
 
-% compare R-squares with non-informative prior - MODIFY
+% compare R-squares with non-informative prior
 \begin{table}
 \caption{$R^2$ measure of models w.r.t. different priors.}
 \label{tab:infectionss}
@@ -459,19 +480,43 @@ There wasn't much difference in the computation time of the models for obtaining
 \multicolumn{1}{c}{M4}\\
 \hline
 $1/\sigma^2$ &	0&   0.410 & 0.656 & 0.742\\
-g-prior &	396&   141 & 86 & h\\
+g-prior &	0&   0.495 & 0.738 & 0.788\\
 \hline
 \end{tabular}
 \end{center}
 \end{table}
 
 
-% comment on R2's - MODIFY
-As expected, $R^2$ increases as we include more factors to the model. If the variation in $y$ explained by regression model increases by almost \%41 when we added population density and by \%65.6 when we added region covariates. However, when we add population density given the region information, that percentage increase only by ~\%8. 
+% comment on R2's 
+As expected, $R^2$ increases as we include more factors to the model. If the variation in $y$ explained by regression model increases by almost \%41 when we added population density and by \%65.6 when we added region covariates. However, when we add population density given the region information, that percentage increase only by ~\%8. We observed the same results when we calculated $R^2$ measures using g-priors. $R^2$ has relatively increased from the case with non-informative priors, too. 
+
+
+% compare Bayes factors
+\begin{table}
+\caption{$R^2$ measure of models w.r.t. different priors.}
+\label{tab:infectionss}
+\begin{center}
+\begin{tabular}{ccccc}
+\hline
+\hline
+\\[-5pt]
+\multicolumn{1}{c}{BF} &
+\multicolumn{1}{c}{value}\\
+\hline
+$BF_{2,1}$ &	3,665,792\\
+$BF_{3,1}$ &	277,662,166\\
+$BF_{4,3}$ &	122.771\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+
+% compare Bayes factors with g-priors
+Now, we would like to answer the main questions in our analysis, as was the population density and clustering counties into regions worth considering. For that purpose, we calculate Bayes Factors comparing model 1 to model 2, model 1 to model 3, and model 3 to model 4. We see that Bayes factors when comparing null (intercept model) to the model 2 and 3 are high enough to conclude that both factors are worth considering in individual manner. Since Bayes factor value comparing the last model: $BF_{4,3} = 122.771 > 100$, we can also conclude that population density adds substantive increase in performance to the model which already considers information on regions. So it's also worth considering population density and region factor together in the same model.
 
 
 
-% compare Bayes factors with g-priors - MODIFY
 
 
 
@@ -481,18 +526,18 @@ As expected, $R^2$ increases as we include more factors to the model. If the var
 
 
 
-
-\section{Discussion} % - MODIFY
+\section{Discussion} %
 
 % intro
 We employed four different constructions of regression model. We treated the number of infected people as a random variable. Our preliminary results showed that the infection rate across counties is not homogenous. It was also confirmed throughout by fitting the models above. 
 
-% was it worth to add region? population density? - MODIFY (Bayes factors???)
-As we see from the analysis above, it's both worth considering region information and population density to the model. Both of those factors were successful in some extent in explaining the variation in the number of infections in California. However, if it's worth considering both factors at the same time is under doubt, since we couldn't see much difference when comparing performances of model 3 and 4. Obviously the more factors you add, it's always better for the model, from mathematical point of view. In practice it doesn't always work that way. At this point, since we get those covariates for granted (population density and region information from US census bureau), it's worth adding them both. For future, we may want to add more covariates as we see there is still room for improvement. In that case we'll have to reconsider our choice of factors since some of them might be correlated and carry the same information. 
+% was it worth to add region? population density?
+As we see from the analysis above, it's both worth considering region information and population density to the model. Both of those factors were successful in some extent in explaining the variation in the number of infections in California. However, if it's worth considering both factors at the same time is under doubt, since we couldn't see much difference when comparing performances of model 3 and 4. 
 
+% is there other models to consider/factors to add?
+After reassessing models using g-priors formulation and calculating Bayes factors, we conculded that, as we already mentioned above, it's worth considering both density population and region factor. There is also room for improvement, since $R^2$ of the last model is $0.788$. Hence we can add more factors to the model to increase \textit{potentially} the $R^2$ to $~1.0$.
 
-% is there other models to consider/factors to add? - MODIFY
-
+Obviously the more factors you add, it's always better for the model, from mathematical point of view. In practice it doesn't always work that way. At this point, since we get those covariates for granted (population density and region information from US census bureau), it's worth adding them both. For future, we may want to add more covariates as we see there is still room for improvement. In that case we'll have to reconsider our choice of factors since some of them might be correlated and carry the same information. 
 
 
 % Talk about future: time when will we reach that 20%, how to slow the spread and find the patterns in different counties
@@ -504,7 +549,7 @@ As a next step, we can consider a model that accounts for the time and space var
 
 
 
-%Note:BibTeX also works - MODIFY
+%Note:BibTeX also works
 
 \begin{references}
 \itemsep=0pt
@@ -515,6 +560,17 @@ Aljazeera, News
 \\\url{https://www.aljazeera.com/news/}
 
 \item
+CA Cansus, 2020
+\\\url{https://census.ca.gov/regions/}
+
+\item
+California Population Density County Rank
+\\\url{http://www.usa.com/rank/california-state--population-density--county-rank.htm}
+
+\item 
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., \& Rubin, D. B. (2013), $\textit{Bayesian Data Analysis} (3^{rd}$ ed.). CRC Press. Taylor \& Francis Group.
+
+\item
 Hines B 2019, Population Density of California
 \\\url{https://storymaps.arcgis.com/stories/252b65cbe331420389c61453c61ea221}
 
@@ -523,14 +579,12 @@ Kuttubekova G 2020, Bayesian Analysis of COVID-19 cases in California
 \\\url{https://github.com/kgulzina/bayesian-analysis-of-COVID19-in-CA}
 
 \item 
-Worldometer: Coronavirus,
-\\\url{https://www.worldometers.info/coronavirus/}
+Liang, F., R. Paulo, G. Molina, M. A. Clyde, and J. O. Berger (2008). Mixtures of g priors for Bayesian variable selection.
 
 
 \item 
-Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., \& Rubin, D. B. (2013), $\textit{Bayesian Data Analysis} (3^{rd}$ ed.). CRC Press. Taylor \& Francis Group.
-
-% add dataset resources!!!! 
+Worldometer: Coronavirus,
+\\\url{https://www.worldometers.info/coronavirus/}
 
 
 }
